@@ -17,8 +17,12 @@ function createSiteSection() {
     beforeGrid.id = `before-grid-${siteCounter}`;
     beforeGrid.innerHTML = `
         <div class="image-upload-container">
-            <input type="file" accept="image/*" class="image-upload" multiple>
-            <button class="add-image">+ Add</button>
+            <div class="upload-buttons">
+                <input type="file" accept="image/*" class="image-upload gallery-upload" multiple>
+                <input type="file" accept="image/*" capture="environment" class="image-upload camera-upload">
+                <button class="add-image gallery-btn">Gallery</button>
+                <button class="add-image camera-btn">Camera</button>
+            </div>
         </div>
     `;
     
@@ -26,8 +30,12 @@ function createSiteSection() {
     afterGrid.id = `after-grid-${siteCounter}`;
     afterGrid.innerHTML = `
         <div class="image-upload-container">
-            <input type="file" accept="image/*" class="image-upload" multiple>
-            <button class="add-image">+ Add</button>
+            <div class="upload-buttons">
+                <input type="file" accept="image/*" class="image-upload gallery-upload" multiple>
+                <input type="file" accept="image/*" capture="environment" class="image-upload camera-upload">
+                <button class="add-image gallery-btn">Gallery</button>
+                <button class="add-image camera-btn">Camera</button>
+            </div>
         </div>
     `;
     
@@ -171,19 +179,28 @@ function setupSiteEventListeners(siteSection) {
 
     // Before images upload
     const beforeGrid = siteSection.querySelector('.before-section .image-grid');
-    const beforeUpload = beforeGrid.querySelector('.image-upload');
-    beforeUpload.addEventListener('change', (e) => handleImageUpload(e, beforeGrid.id));
+    setupImageUploads(beforeGrid);
 
     // After images upload
     const afterGrid = siteSection.querySelector('.after-section .image-grid');
-    const afterUpload = afterGrid.querySelector('.image-upload');
-    afterUpload.addEventListener('change', (e) => handleImageUpload(e, afterGrid.id));
+    setupImageUploads(afterGrid);
+}
 
-    // Add image buttons
-    siteSection.querySelectorAll('.add-image').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const input = btn.previousElementSibling;
-            input.click();
-        });
+// Function to setup image upload buttons
+function setupImageUploads(grid) {
+    const galleryUpload = grid.querySelector('.gallery-upload');
+    const cameraUpload = grid.querySelector('.camera-upload');
+    const galleryBtn = grid.querySelector('.gallery-btn');
+    const cameraBtn = grid.querySelector('.camera-btn');
+
+    galleryBtn.addEventListener('click', () => {
+        galleryUpload.click();
     });
+
+    cameraBtn.addEventListener('click', () => {
+        cameraUpload.click();
+    });
+
+    galleryUpload.addEventListener('change', (e) => handleImageUpload(e, grid.id));
+    cameraUpload.addEventListener('change', (e) => handleImageUpload(e, grid.id));
 } 
