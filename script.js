@@ -1,264 +1,214 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-}
+// Initialize jsPDF
+const { jsPDF } = window.jspdf;
 
-body {
-    font-family: Arial, sans-serif;
-    line-height: 1.6;
-    padding: 20px;
-    background-color: #f5f5f5;
-    -webkit-text-size-adjust: 100%;
-}
+// Constants
+const MAX_IMAGES = 10;
+const IMAGE_SIZE = 100;
+let siteCounter = 1;
+let currentUploadGrid = null;
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 10px;
-}
-
-h1 {
-    text-align: center;
-    margin-bottom: 30px;
-    color: #333;
-    font-size: clamp(24px, 5vw, 32px);
-}
-
-.site-section {
-    background: white;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.site-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.site-name {
-    flex: 1;
-    padding: 12px;
-    font-size: 16px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin-right: 10px;
-    -webkit-appearance: none;
-    appearance: none;
-}
-
-.delete-site {
-    background: #ff4444;
-    color: white;
-    border: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: manipulation;
-}
-
-.image-sections {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.before-section, .after-section {
-    flex: 1;
-}
-
-h2 {
-    margin-bottom: 15px;
-    color: #444;
-    font-size: clamp(18px, 4vw, 24px);
-}
-
-.image-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.image-container {
-    position: relative;
-    width: 100px;
-    height: 100px;
-    touch-action: manipulation;
-}
-
-.image-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 4px;
-    cursor: pointer;
-    touch-action: manipulation;
-}
-
-.delete-image {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    background: rgba(255, 68, 68, 0.8);
-    color: white;
-    border: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: manipulation;
-}
-
-.image-upload-container {
-    width: 100px;
-    height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px dashed #ddd;
-    border-radius: 4px;
-    cursor: pointer;
-    touch-action: manipulation;
-}
-
-.image-upload {
-    display: none;
-}
-
-.add-image {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    touch-action: manipulation;
-}
-
-.action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-top: 30px;
-    padding: 0 10px;
-}
-
-.add-site-btn, .generate-pdf {
-    background: #9C27B0;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    width: 100%;
-    touch-action: manipulation;
-}
-
-.generate-pdf {
-    background: #2196F3;
-}
-
-@media (min-width: 768px) {
-    .image-sections {
-        flex-direction: row;
-    }
+// Helper function to create a new site section
+function createSiteSection() {
+    siteCounter++;
+    const template = document.querySelector('.site-section').cloneNode(true);
+    template.querySelector('.site-name').value = '';
     
-    .action-buttons {
-        flex-direction: row;
-        justify-content: center;
-    }
+    // Update IDs to be unique for each site
+    const beforeGrid = template.querySelector('.image-grid');
+    beforeGrid.id = `before-grid-${siteCounter}`;
+    beforeGrid.innerHTML = `
+        <div class="image-upload-container">
+            <input type="file" accept="image/*" class="image-upload gallery-upload" multiple>
+            <input type="file" accept="image/*" capture="environment" class="image-upload camera-upload">
+            <button class="add-image">+ Add</button>
+        </div>
+    `;
     
-    .add-site-btn, .generate-pdf {
-        width: auto;
-    }
+    const afterGrid = template.querySelectorAll('.image-grid')[1];
+    afterGrid.id = `after-grid-${siteCounter}`;
+    afterGrid.innerHTML = `
+        <div class="image-upload-container">
+            <input type="file" accept="image/*" class="image-upload gallery-upload" multiple>
+            <input type="file" accept="image/*" capture="environment" class="image-upload camera-upload">
+            <button class="add-image">+ Add</button>
+        </div>
+    `;
+    
+    return template;
 }
 
-/* Mobile-specific optimizations */
-@media (max-width: 480px) {
-    body {
-        padding: 10px;
+// Function to handle image upload
+function handleImageUpload(event, gridId) {
+    const files = event.target.files;
+    const gridElement = document.getElementById(gridId);
+    const currentImages = gridElement.querySelectorAll('.image-container').length;
+
+    if (currentImages + files.length > MAX_IMAGES) {
+        alert(`You can only upload ${MAX_IMAGES} images per section`);
+        return;
     }
+
+    Array.from(files).forEach(file => {
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'image-container';
+                imageContainer.innerHTML = `
+                    <img src="${e.target.result}" class="image-preview" alt="Preview">
+                    <button class="delete-image">×</button>
+                `;
+                
+                // Add click event to replace image
+                const img = imageContainer.querySelector('.image-preview');
+                img.addEventListener('click', () => {
+                    currentUploadGrid = gridElement;
+                    showUploadModal();
+                });
+
+                // Add delete functionality
+                const deleteBtn = imageContainer.querySelector('.delete-image');
+                deleteBtn.addEventListener('click', () => {
+                    imageContainer.remove();
+                });
+
+                gridElement.insertBefore(imageContainer, gridElement.lastElementChild);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
     
-    .site-section {
-        padding: 10px;
-    }
-    
-    .image-container, .image-upload-container {
-        width: 80px;
-        height: 80px;
-    }
-    
-    .site-name {
-        padding: 10px;
-        font-size: 14px;
-    }
-    
-    .add-image {
-        padding: 8px 14px;
-        font-size: 14px;
-    }
-    
-    .delete-image {
-        width: 20px;
-        height: 20px;
-        font-size: 12px;
-    }
+    // Hide modal after upload
+    hideUploadModal();
 }
 
-.upload-buttons {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
+// Modal functions
+function showUploadModal() {
+    const modal = document.getElementById('uploadModal');
+    modal.classList.add('show');
 }
 
-.gallery-btn, .camera-btn {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    touch-action: manipulation;
-    min-width: 80px;
+function hideUploadModal() {
+    const modal = document.getElementById('uploadModal');
+    modal.classList.remove('show');
 }
 
-.camera-btn {
-    background: #2196F3;
+// Function to generate PDF for all sites
+function generateAllPDFs() {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 10;
+    const imageWidth = (pageWidth - 3 * margin) / 2;
+    const imageHeight = imageWidth * 0.75;
+
+    document.querySelectorAll('.site-section').forEach((siteSection, index) => {
+        if (index > 0) {
+            doc.addPage();
+        }
+
+        const siteName = siteSection.querySelector('.site-name').value || 'Unnamed Site';
+        const beforeImages = Array.from(siteSection.querySelectorAll('.image-preview')).filter(img => 
+            img.closest('.before-section')
+        ).map(img => img.src);
+        const afterImages = Array.from(siteSection.querySelectorAll('.image-preview')).filter(img => 
+            img.closest('.after-section')
+        ).map(img => img.src);
+
+        // Add site name
+        doc.setFontSize(20);
+        doc.text(siteName, pageWidth / 2, 20, { align: 'center' });
+
+        // Add before images
+        doc.setFontSize(16);
+        doc.text('Before', margin, 40);
+        let y = 50;
+        beforeImages.forEach((img, index) => {
+            if (y + imageHeight > doc.internal.pageSize.getHeight() - margin) {
+                doc.addPage();
+                y = margin;
+            }
+            doc.addImage(img, 'JPEG', margin, y, imageWidth, imageHeight);
+            y += imageHeight + margin;
+        });
+
+        // Add after images
+        y = 50;
+        doc.text('After', pageWidth / 2 + margin, 40);
+        afterImages.forEach((img, index) => {
+            if (y + imageHeight > doc.internal.pageSize.getHeight() - margin) {
+                doc.addPage();
+                y = margin;
+            }
+            doc.addImage(img, 'JPEG', pageWidth / 2 + margin, y, imageWidth, imageHeight);
+            y += imageHeight + margin;
+        });
+    });
+
+    doc.save('all_sites_report.pdf');
 }
 
-.gallery-upload, .camera-upload {
-    display: none;
+// Function to setup event listeners for a site section
+function setupSiteEventListeners(siteSection) {
+    // Delete site
+    siteSection.querySelector('.delete-site').addEventListener('click', () => {
+        if (document.querySelectorAll('.site-section').length > 1) {
+            siteSection.remove();
+        } else {
+            alert('You must have at least one site section');
+        }
+    });
+
+    // Setup upload buttons
+    siteSection.querySelectorAll('.image-grid').forEach(grid => {
+        const addButton = grid.querySelector('.add-image');
+        addButton.addEventListener('click', () => {
+            currentUploadGrid = grid;
+            showUploadModal();
+        });
+    });
 }
 
-@media (max-width: 480px) {
-    .gallery-btn, .camera-btn {
-        padding: 12px 16px;
-        font-size: 16px;
-        width: calc(50% - 5px);
-        margin: 0;
-    }
+// Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Add new site
+    document.getElementById('add-site').addEventListener('click', () => {
+        const newSite = createSiteSection();
+        document.getElementById('sites-container').appendChild(newSite);
+        setupSiteEventListeners(newSite);
+    });
 
-    .upload-buttons {
-        width: 100%;
-        padding: 10px;
-    }
-} 
+    // Setup modal events
+    const modal = document.getElementById('uploadModal');
+    const galleryOption = modal.querySelector('.gallery-option');
+    const cameraOption = modal.querySelector('.camera-option');
+    const closeButton = modal.querySelector('.modal-close');
+
+    galleryOption.addEventListener('click', () => {
+        const galleryUpload = currentUploadGrid.querySelector('.gallery-upload');
+        galleryUpload.click();
+    });
+
+    cameraOption.addEventListener('click', () => {
+        const cameraUpload = currentUploadGrid.querySelector('.camera-upload');
+        cameraUpload.click();
+    });
+
+    closeButton.addEventListener('click', hideUploadModal);
+
+    // Setup file input change events
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('gallery-upload') || e.target.classList.contains('camera-upload')) {
+            handleImageUpload(e, e.target.closest('.image-grid').id);
+        }
+    });
+
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            hideUploadModal();
+        }
+    });
+
+    // Setup initial site
+    setupSiteEventListeners(document.querySelector('.site-section'));
+}); 
